@@ -4,7 +4,7 @@ import xml.sax
 
 # Settings
 root_tag = "name-of-root-tag"
-string_tag = "str" # Tag name used internally for strings. Has to be a tag name 
+string_tag = "str" # Tag name used to represent strings. Has to be a tag name
                    # that's not being used in the XML file
 source_path = "source.xml" # Path to XML file
 target_path = "target.json" # Target file path
@@ -97,7 +97,7 @@ class XmlStatsHandler(xml.sax.ContentHandler):
         # This is a safeguard. In theory this should never be 0
         if len(self.elementStack) > 0:
             currentElementChildren = self.elementStack[-1]["children"]
-            # This causes subsequent strings to be ignored
+            # Subsequent strings are ignored, i.e. counted as one string
             if len(currentElementChildren) == 0 or not currentElementChildren[-1]["tag"] == string_tag:
                 currentElementChildren.append({ "tag": string_tag, "attributes": [], "children": [] })
 
