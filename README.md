@@ -5,8 +5,9 @@ This script gathers statistics about the elements in an XML file and writes them
 Output format:
 
 ```
-{
-  tagName: {
+[
+  "tag": string
+  "stats": {
     "attributes": [
       {
         "name": string,
@@ -18,12 +19,11 @@ Output format:
     "children": [
       {
         "tag": string,
-        "min": number,
-        "max": number
+        "minCount": number,
+        "maxCount": number
       }
     ]
   },
-  tagName: {
-    ...
-}
+  ...
+]
 ```

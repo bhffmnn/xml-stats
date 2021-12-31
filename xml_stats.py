@@ -1,4 +1,5 @@
 import json
+from typing import Iterable
 import xml.sax
 
 
@@ -9,11 +10,16 @@ string_tag = "str" # Tag name used internally for strings. Has to be a tag name
 source_path = "source.xml" # Path to XML file
 target_path = "target.json" # Target file path
 
+def find(condition, iterable):
+    for element in iterable:
+        if condition(element):
+            return element
+    return None
 
 class XmlStatsHandler(xml.sax.ContentHandler):
     def __init__(self):
         self.elementStack = []
-        self.statsDict = {}
+        self.statsList = []
 
         
     def startElement(self, tag, attributes):
@@ -29,10 +35,9 @@ class XmlStatsHandler(xml.sax.ContentHandler):
     def endElement(self, tag):
         if tag != root_tag:
             element = self.elementStack.pop()
-            statsElement = self.statsDict.get(tag)
-            
+            statsElement = find(lambda e: e["tag"] == tag, self.statsList)
             # NEW
-            if statsElement == None:
+            if not statsElement:
                 attributesStats = []
                 for attr in element["attributes"]:
                     attributesStats.append({"name": attr, "always": True})
@@ -42,52 +47,51 @@ class XmlStatsHandler(xml.sax.ContentHandler):
                 childrenStats = []
                 for child in element["children"]:
                     tagCount = len(list(filter(lambda c: c["tag"] == child["tag"], element["children"])))
-                    childStats = {"tag": child["tag"], "min": tagCount, "max": tagCount}
+                    childStats = {"tag": child["tag"], "minCount": tagCount, "maxCount": tagCount}
                     childrenStats.append(childStats)
 
-                self.statsDict.update({tag: {"attributes": attributesStats, "maxChildrenCount": maxChildrenCount, "minChildrenCount": maxChildrenCount, "children": childrenStats}})
+                self.statsList.append({"tag": tag, "stats": {"attributes": attributesStats, "maxChildrenCount": maxChildrenCount, "minChildrenCount": maxChildrenCount, "children": childrenStats}})
             
             # UPDATE
             else:
                 # Update attributesStats                
-                attributesStats = map(lambda a: a["name"], statsElement["attributes"])
+                attributesStats = map(lambda a: a["name"], statsElement["stats"]["attributes"])
                 # Add new attributes
                 for attr in element["attributes"]:
                     if attr not in attributesStats:
-                        statsElement["attributes"].append({"name": attr, "always": False})
+                        statsElement["stats"]["attributes"].append({"name": attr, "always": False})
                 # Update 'always' property
                 for attrName in attributesStats:
                     if attrName not in element["attributes"]:
-                        list(filter(lambda a: a["name"] == attrName, statsElement["attributes"]))[0]["always"] = False
+                        find(lambda a: a["name"] == attrName, statsElement["stats"]["attributes"])["always"] = False
                 
-                childrenStats = statsElement["children"]
+                childrenStats = statsElement["stats"]["children"]
 
                 # Update max and min children count
-                if statsElement["maxChildrenCount"] < len(element["children"]):
-                    statsElement.update({"maxChildrenCount": len(element["children"])})
-                if statsElement["minChildrenCount"] > len(element["children"]):
-                    statsElement.update({"minChildrenCount": len(element["children"])})
+                if statsElement["stats"]["maxChildrenCount"] < len(element["children"]):
+                    statsElement["stats"].update({"maxChildrenCount": len(element["children"])})
+                if statsElement["stats"]["minChildrenCount"] > len(element["children"]):
+                    statsElement["stats"].update({"minChildrenCount": len(element["children"])})
 
                 # Update childrenStats
                 # Increase max count / add child
                 for child in element["children"]:
                         tagCount = len(list(filter(lambda c: c["tag"] == child["tag"], element["children"])))
-                        # This will have length 0 or 1
-                        filteredChildElementInfos = list(filter(lambda c: c["tag"] == child["tag"], childrenStats))
-                        # LENGTH 1 = EXISTS => increase max count if necessary
-                        if len(filteredChildElementInfos) != 0:
-                            if filteredChildElementInfos[0]["max"] < tagCount:
-                                filteredChildElementInfos[0]["max"] = tagCount
-                        # LENGTH 0 = NEW
+                        childElementStats = find(lambda c: c["tag"] == child["tag"], childrenStats)
+                        # EXISTS => increase max count if necessary
+                        if childElementStats:
+                            if childElementStats["maxCount"] < tagCount:
+                                childElementStats["maxCount"] = tagCount
+                        # NONE => NEW
                         else:
-                            childStats = {"tag": child["tag"], "min": 0, "max": tagCount}
+                            childStats = {"tag": child["tag"], "minCount": 0, "maxCount": tagCount}
                             childrenStats.append(childStats)
                 # Decrease min count
                 existingChildTags = list(map(lambda c: c["tag"], childrenStats))
                 currentChildTags = list(map(lambda c: c["tag"], element["children"]))
                 for childTag in existingChildTags:
                     if childTag not in currentChildTags:
-                        list(filter(lambda c: c["tag"] == childTag, childrenStats))[0]["min"] = 0
+                        find(lambda c: c["tag"] == childTag, childrenStats)["minCount"] = 0
 
 
     def characters(self, content):
@@ -104,7 +108,7 @@ if __name__ == "__main__":
     parser = xml.sax.make_parser()
     parser.setContentHandler(handler)
     parser.parse(open(source_path, "r", encoding="utf8"))
-    json_dump = json.dumps(handler.statsDict, ensure_ascii=False, indent=2)
+    json_dump = json.dumps(handler.statsList, ensure_ascii=False, indent=2)
     f = open(target_path, "w", encoding="utf8")
     f.write(json_dump)
     f.close()
