@@ -1,10 +1,14 @@
 import json
 import xml.sax
 
-skip_tags = ["name-of-root-tag-probably"]
-string_tag = "str" # Tag used internally for strings. Should be a name not used in the XML file
+
+# Settings
+root_tag = "name-of-root-tag"
+string_tag = "str" # Tag name used internally for strings. Has to be a tag name 
+                   # that's not being used in the XML file
 source_path = "source.xml" # Path to XML file
 target_path = "target.json" # Target file path
+
 
 class XmlStatsHandler(xml.sax.ContentHandler):
     def __init__(self):
@@ -13,7 +17,7 @@ class XmlStatsHandler(xml.sax.ContentHandler):
 
         
     def startElement(self, tag, attributes):
-        if tag not in skip_tags:
+        if tag != root_tag:
             newElement = { "tag": tag, "attributes": attributes.getNames(), "children": [] }
             
             if len(self.elementStack) > 0:
@@ -23,7 +27,7 @@ class XmlStatsHandler(xml.sax.ContentHandler):
 
 
     def endElement(self, tag):
-        if tag not in skip_tags:
+        if tag != root_tag:
             element = self.elementStack.pop()
             statsElement = self.statsDict.get(tag)
             
